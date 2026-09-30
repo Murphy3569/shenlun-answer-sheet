@@ -88,8 +88,6 @@ npm run dev          # 打开 http://localhost:5173
 
 ![单题练习](docs/single-page.png)
 
-
-
 **导出的 PDF** —— A4 纵向、标题居中、段首缩进，矢量文字可选中，不含任何方格。
 
 ![导出 PDF](docs/export-pdf.png)
