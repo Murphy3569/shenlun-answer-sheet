@@ -98,11 +98,11 @@ jobs:
 
       - name: 重命名并附上使用说明
         run: |
-          # 附件名必须用 ASCII：GitHub 会把非 ASCII 字符从附件名里剥掉，
-          # 「申论答题卡-v1.0.0.html」会被改成「-v1.0.0.html」，
-          # 纯中文名「使用说明.txt」更会被整个替换成「default.txt」。
-          mv release/index.html "release/shenlun-answer-sheet-${GITHUB_REF_NAME}.html"
-          cat > release/HOW-TO-USE.txt <<'TXT'
+          # 附件名保持中文：Release 页面上要显示中文名。
+          # （GitHub 生成下载链接时会剥掉非 ASCII 字符，所以下载到桌面的文件名
+          #   会是「-v1.0.0.html」；这是显示名与下载名二选一，这里选了显示名。）
+          mv release/index.html "release/申论答题卡-${GITHUB_REF_NAME}.html"
+          cat > release/使用说明.txt <<'TXT'
           申论电脑模拟答题卡 —— 离线单文件版
           =====================================
 
@@ -127,7 +127,7 @@ jobs:
           body: |
             ## 离线单文件版
 
-            不想装任何东西的话，直接下载下面的 `shenlun-answer-sheet-*.html`，双击就能用（全程离线）。
+            不想装任何东西的话，直接下载下面的 `申论答题卡-*.html`，双击就能用（全程离线）。
 
             想要在线版请访问 GitHub Pages 地址。
 

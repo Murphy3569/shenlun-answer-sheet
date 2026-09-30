@@ -57,7 +57,7 @@ https://murphy3569.github.io/shenlun-answer-sheet/
 
 下载**一个 `.html` 文件**，双击打开就能用，**全程离线，不需要安装任何东西**：
 
-1. 到 [Releases](../../releases) 页面下载 `shenlun-answer-sheet-*.html`
+1. 到 [Releases](../../releases) 页面下载 `申论答题卡-*.html`
 2. 放到桌面，双击（用 Chrome / Edge / Safari 打开都行）
 3. 直接开始打字
 
