@@ -70,7 +70,10 @@ jobs:
   # ---------------------------------------------------------------------------
   deploy:
     needs: build
-    if: github.event_name != 'pull_request'
+    # 只在 main 分支推送时发布站点。
+    # 打 tag 时 github.ref 是 refs/tags/vX.Y.Z，那一次该走 release 任务，不该重新发布站点 ——
+    # 而且 tag 常常指向一个更早的提交，发布上去会把线上站点悄悄回滚到旧版本。
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
