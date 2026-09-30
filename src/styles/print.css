@@ -1,0 +1,104 @@
+/* ==========================================================================
+   打印 / 导出 PDF
+   原则：只打印 .print-root 里的干净文字，绝不出现任何答题格、红框、定位三角。
+   样式全部作用域在 .print-root 下，不会污染屏幕上的应用界面。
+   ========================================================================== */
+
+@media screen {
+  .print-root {
+    display: none;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 20mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    margin: 0 !important;
+  }
+
+  /* 应用外壳是 height:100% 的满屏布局，打印时要解除，否则内容可能被裁掉 */
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 屏幕上的一切都不打印 */
+  .app,
+  .toolbar,
+  .sheet-viewport,
+  .zoom-bar,
+  .toast {
+    display: none !important;
+  }
+
+  .print-root {
+    display: block !important;
+  }
+}
+
+.print-root {
+  font-family: "仿宋_GB2312", "FangSong", "仿宋", "Songti SC", "SimSun", "宋体", serif;
+  font-size: 16pt;
+  line-height: 1.75;
+  color: #000;
+}
+
+.print-root .pdf-title {
+  font-family: "方正小标宋简体", "STZhongsong", "Songti SC", "SimSun", serif;
+  font-size: 22pt;
+  font-weight: normal;
+  text-align: center;
+  margin: 0 0 18pt 0;
+  page-break-after: avoid;
+}
+
+.print-root .pdf-subtitle {
+  font-size: 16pt;
+  font-weight: normal;
+  text-align: center;
+  margin: 0 0 12pt 0;
+  page-break-after: avoid;
+}
+
+.print-root .pdf-block-title {
+  font-size: 16pt;
+  font-weight: bold;
+  margin: 0 0 6pt 0;
+  page-break-after: avoid;
+}
+
+.print-root .pdf-para {
+  margin: 0;
+  text-align: justify;
+  word-break: break-word;
+}
+
+.print-root .pdf-para.center {
+  text-align: center;
+}
+
+.print-root .pdf-para.right {
+  text-align: right;
+}
+
+.print-root .pdf-empty {
+  margin: 0;
+  height: 1.75em;
+}
+
+.print-root .pdf-tab {
+  display: inline-block;
+  width: 2em;
+}
+
+.print-root .pdf-gap {
+  height: 1.75em;
+}

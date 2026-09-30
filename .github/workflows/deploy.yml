@@ -1,0 +1,128 @@
+name: 构建与发布
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 发布到 GitHub Pages 需要这两个权限
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 类型检查 + 单元测试 + 两种构建（普通的静态站点 & 单文件离线版）
+  # ---------------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 必须是 24（Active LTS）：测试用的 jsdom 30 要求 ^22.22.2 || ^24.15.0 || >=26.0.0，
+          # Node 20 连加载都做不到，会在 npm test 那一步直接失败（且 20 已于 2026-04 EOL）。
+          node-version: 24
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单元测试
+        run: npm test
+
+      - name: 构建静态站点
+        run: npx vite build
+
+      - name: 构建单文件离线版
+        run: npx vite build --config vite.config.singlefile.ts
+
+      - name: 把单文件版放进站点产物（供在线直接下载）
+        run: |
+          mkdir -p dist/download
+          cp dist-single/index.html dist/download/shenlun-answer-sheet.html
+
+      - name: 上传站点产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: 上传单文件产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: shenlun-answer-sheet-single-file
+          path: dist-single/index.html
+
+  # ---------------------------------------------------------------------------
+  # 发布到 GitHub Pages（在线版：点开网址就能用）
+  # ---------------------------------------------------------------------------
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ---------------------------------------------------------------------------
+  # 打 tag 时把单文件离线版挂到 Release（给不想装任何东西的人直接下载）
+  # ---------------------------------------------------------------------------
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: shenlun-answer-sheet-single-file
+          path: release
+
+      - name: 重命名并附上使用说明
+        run: |
+          mv release/index.html "release/申论答题卡-${GITHUB_REF_NAME}.html"
+          cat > release/使用说明.txt <<'TXT'
+          申论电脑模拟答题卡 —— 离线单文件版
+          =====================================
+
+          怎么用：
+            1. 把这个 .html 文件下载到电脑上（放桌面就行）
+            2. 双击打开（用 Chrome / Edge / Safari 都可以）
+            3. 直接开始打字，不需要联网，不需要安装任何东西
+
+          说明：
+            · 全部功能都在这个文件里（含导出 Word / PDF）
+            · 文件约 5.7MB，因为内嵌了中文字体，导出 PDF 才能不乱码
+            · 作答内容不会上传到任何地方，完全在你自己电脑上
+
+          遇到问题请到项目主页提 Issue。
+          TXT
+          ls -la release/
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          body: |
+            ## 离线单文件版
+
+            不想装任何东西的话，直接下载下面的 `申论答题卡-*.html`，双击就能用（全程离线）。
+
+            想要在线版请访问 GitHub Pages 地址。
+
+            > 单文件约 5.7MB，因为内嵌了中文字体 —— 这样导出的 PDF 才不会乱码。

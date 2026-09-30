@@ -1,0 +1,490 @@
+/* ==========================================================================
+   申论答题卡本体
+   全部尺寸从 geometry.ts 注入的 CSS 变量推导，这里不出现任何写死的 mm 数值。
+   ========================================================================== */
+
+:root {
+  /* 方格线：细红线，但不能太深，否则整张卡看起来发黑 */
+  --grid-line: #e2a9a9;
+  /* 外框与分区标题的正式红 */
+  --grid-frame: #c0392b;
+  --paper: #ffffff;
+  --ink-cell: #10151c;
+}
+
+.sheet-page {
+  position: relative;
+  user-select: none;
+  width: var(--page-w);
+  height: var(--page-h);
+  background: var(--paper);
+  border: 0.6mm solid var(--grid-frame);
+  padding: var(--page-padding);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 6px 26px rgba(16, 24, 40, 0.16);
+  font-family: var(--font-hei);
+  color: var(--ink);
+  flex: 0 0 auto;
+}
+
+/* 页面四角的黑色三角定位标记 —— 模板装饰，与答题内容完全无关 */
+.corner-mark {
+  position: absolute;
+  width: 6mm;
+  height: 6mm;
+  pointer-events: none;
+}
+
+.corner-mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #111;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.corner-mark--tl {
+  top: -0.6mm;
+  left: -0.6mm;
+}
+
+.corner-mark--tr {
+  top: -0.6mm;
+  right: -0.6mm;
+  transform: scaleX(-1);
+}
+
+.corner-mark--bl {
+  bottom: -0.6mm;
+  left: -0.6mm;
+  transform: scaleY(-1);
+}
+
+.corner-mark--br {
+  bottom: -0.6mm;
+  right: -0.6mm;
+  transform: scale(-1, -1);
+}
+
+/* --------------------------------------------------------------------------
+   抬头
+   -------------------------------------------------------------------------- */
+
+.sheet-header {
+  flex: 0 0 auto;
+  height: var(--header-first);
+  display: flex;
+  flex-direction: column;
+  padding-top: 3mm;
+  padding-bottom: 4mm;
+  border-bottom: 0.4mm solid var(--grid-frame);
+  position: relative;
+}
+
+/* 注意事项贴着答题区上沿，多出来的高度留作上半部分的呼吸空间 */
+.sheet-header .notice {
+  margin-top: auto;
+}
+
+.sheet-title {
+  text-align: center;
+  font-size: 8.2mm;
+  letter-spacing: 2.6mm;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 2.4mm 0;
+  font-family: var(--font-hei);
+  text-indent: 2.4mm;
+}
+
+.sheet-subtitle {
+  text-align: center;
+  font-size: 3.5mm;
+  color: #222;
+  margin: 0 0 3.6mm 0;
+  letter-spacing: 0.2mm;
+}
+
+.sheet-meta {
+  display: flex;
+  align-items: center;
+  gap: 8mm;
+  font-size: 3.3mm;
+  color: #111;
+  padding: 0 2mm;
+}
+
+.sheet-meta .field {
+  display: flex;
+  align-items: center;
+  gap: 1.4mm;
+}
+
+.sheet-meta .underline {
+  display: inline-block;
+  min-width: 26mm;
+  border-bottom: 0.3mm solid #333;
+  height: 4.2mm;
+}
+
+.sheet-meta .underline--short {
+  min-width: 42mm;
+}
+
+.notice {
+  margin-top: 2mm;
+  border: 0.3mm solid #444;
+  border-radius: 0.8mm;
+  padding: 2mm 3mm;
+  font-size: 2.8mm;
+  line-height: 1.65;
+  color: #222;
+  background: #fcfcfc;
+}
+
+.notice b {
+  color: #111;
+}
+
+.notice ol {
+  margin: 1mm 0 0;
+  padding-left: 4.5mm;
+}
+
+.notice li + li {
+  margin-top: 0.4mm;
+}
+
+.cont-title {
+  font-size: 6mm;
+  font-weight: 600;
+  color: #111;
+  text-align: center;
+  letter-spacing: 0.6mm;
+  margin: 1mm 0 3.6mm 0;
+}
+
+/* 缺考 / 作弊标记区 */
+.absent-box {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: flex;
+  gap: 2mm;
+  font-size: 2.4mm;
+  color: #333;
+}
+
+.absent-box .tick {
+  border: 0.3mm solid #666;
+  width: 4mm;
+  height: 4mm;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 1mm;
+}
+
+/* --------------------------------------------------------------------------
+   答题区
+   -------------------------------------------------------------------------- */
+
+.sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: var(--panel-gap);
+  padding-top: 2mm;
+  position: relative;
+}
+
+/* 页面中间的竖向虚线（模板装饰） */
+.sheet-body::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  border-left: 0.3mm dashed #9aa0a6;
+  transform: translateX(-0.15mm);
+  pointer-events: none;
+}
+
+.sheet-body--single::before {
+  display: none;
+}
+
+.panel {
+  flex: 0 0 var(--panel-w);
+  width: var(--panel-w);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panel-heading {
+  height: var(--panel-heading);
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  font-size: 3.2mm;
+  color: #111;
+  font-weight: 600;
+  padding-left: 0.4mm;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.panel-heading .cap {
+  font-weight: 400;
+  color: #555;
+  font-size: 2.8mm;
+}
+
+.panel-heading .cont-badge {
+  font-weight: 400;
+  color: var(--grid-frame);
+  font-size: 2.7mm;
+  border: 0.25mm solid var(--grid-frame);
+  border-radius: 0.6mm;
+  padding: 0 1mm;
+}
+
+.grid {
+  position: relative;
+}
+
+/* 外框线用绝对定位画，不参与布局 —— 否则 20 格 × 每格 0.25mm 边框会把面板撑宽 */
+.grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 0.25mm solid var(--grid-line);
+  border-left: 0.25mm solid var(--grid-line);
+  pointer-events: none;
+}
+
+.grid-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--cell));
+  height: var(--cell);
+}
+
+/* 行末的格数标注（每满 100 格一个），贴齐行底、不参与网格布局 */
+.row-marker {
+  position: absolute;
+  bottom: 0.15mm;
+  font-size: 2.2mm;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--grid-frame);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.9;
+  font-family: var(--font-hei);
+  /* 标注是行内第一个子元素，后面的格子会盖住它 —— 提到最上层，并垫一层白底
+     保证即使几位数字向左探进格子一点点，也依然看得清 */
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0 0.25mm;
+  border-radius: 0.3mm;
+}
+
+/* 右半页：标注放在行尾右侧，右边就是页边距，空间充裕 */
+.row-marker--outer {
+  left: calc(100% + 0.8mm);
+}
+
+/* 左半页：行尾紧挨着页面中间的竖向虚线，改成右对齐、末端离虚线留 0.8mm，
+   这样多个数字时向左伸缩，不会压到虚线上 */
+.row-marker--inset {
+  right: calc(-1 * (var(--panel-gap) / 2 - 0.8mm));
+  text-align: right;
+}
+
+/* --------------------------------------------------------------------------
+   单元格
+   -------------------------------------------------------------------------- */
+
+.cell {
+  position: relative;
+  width: var(--cell);
+  height: var(--cell);
+  border-right: 0.25mm solid var(--grid-line);
+  border-bottom: 0.25mm solid var(--grid-line);
+  overflow: hidden;
+}
+
+.cell--overflow {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(192, 57, 43, 0.1),
+    rgba(192, 57, 43, 0.1) 1mm,
+    rgba(192, 57, 43, 0.02) 1mm,
+    rgba(192, 57, 43, 0.02) 2mm
+  );
+}
+
+.cell--selected {
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.caret {
+  position: absolute;
+  /* 上下留出间隙，不要贴着格线 */
+  top: 15%;
+  bottom: 15%;
+  width: 0.55mm;
+  border-radius: 0.3mm;
+  background: #1d4ed8;
+  /* 白描边让光标压在红线、黑字上都看得清 */
+  box-shadow:
+    0 0 0 0.18mm rgba(255, 255, 255, 0.95),
+    0 0 1.1mm rgba(29, 78, 216, 0.55);
+  transform: translateX(-50%);
+  animation: caret-blink 1.1s steps(1, end) infinite;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* 光标所在的格整体加一层淡蓝底，扫一眼就能找到光标在哪 */
+.cell--caret {
+  background: rgba(37, 99, 235, 0.13);
+}
+
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 格内文字。尺寸基准只有 --cell 一个，禁止 em 嵌套 */
+.glyph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-kai);
+  font-size: calc(var(--cell) * 0.76);
+  line-height: 1;
+  color: var(--ink-cell);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 需要挪位置的字形：字身框与格子等大，整体平移（平移量已按墨迹锚点换算过）。
+   字号由行内样式给出，这里只负责位置。 */
+.glyph--positioned,
+.glyph--compressed {
+  --gx: 50;
+  --gy: 50;
+  transform: translate(calc((var(--gx) - 50) * 1%), calc((var(--gy) - 50) * 1%));
+  transform-origin: center center;
+}
+
+/* 行末被压进一格的破折号 / 省略号：在平移的基础上再横向压扁 */
+.glyph--compressed {
+  transform: translate(calc((var(--gx) - 50) * 1%), calc((var(--gy) - 50) * 1%)) scaleX(0.58);
+  letter-spacing: -0.06em;
+}
+
+/* 被挤占进同一格的标点（依附主字右下角） */
+/* 被挤占进这一格的标点。
+   关键：字身框必须和格子等大（inset: 0），因为定位量是按「整格」推导出来的；
+   之前这里是按文字自身尺寸（约 0.6 格）摆放，导致两个标点被算到几乎同一个位置。 */
+.attach {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  --gx: 50;
+  --gy: 50;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--font-kai);
+  font-size: calc(var(--cell) * 0.56);
+  line-height: 1;
+  color: var(--ink-cell);
+  white-space: nowrap;
+  transform: translate(calc((var(--gx) - 50) * 1%), calc((var(--gy) - 50) * 1%));
+  transform-origin: center center;
+}
+
+/* 空格的视觉提示（屏幕上看得见是空格；打印/导出不会有任何痕迹） */
+.cell--space::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22%;
+  height: 22%;
+  transform: translate(-50%, -50%);
+  border: 0.2mm dotted #c9ced6;
+  border-radius: 50%;
+}
+
+/* 段首缩进 / 居中留白格：完全空白，没有任何标记。
+   .cell 本身就没有 background，留白格自动继承纸张底色，这里不需要（也不该）再声明一次 ——
+   .cell--caret / .cell--selected 都是单类选择器，在它们之后声明的 background 会直接盖掉
+   光标底纹和选区高亮，而光标最常停的位置恰恰就是留白格（文末补格、段首缩进格）。 */
+
+/* --------------------------------------------------------------------------
+   页脚
+   -------------------------------------------------------------------------- */
+
+.sheet-footer {
+  flex: 0 0 auto;
+  height: var(--footer-h);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  font-size: 3mm;
+  color: var(--grid-frame);
+  padding-top: 1.2mm;
+}
+
+.sheet-footer .end-note {
+  font-weight: 600;
+  letter-spacing: 0.3mm;
+}
+
+.sheet-footer .page-no {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 中文输入法预编辑串的浮层提示 */
+.composition-hint {
+  position: absolute;
+  font-family: var(--font-kai);
+  font-size: calc(var(--cell) * 0.7);
+  color: #2563eb;
+  border-bottom: 0.3mm solid #2563eb;
+  padding: 0 0.4mm;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* --------------------------------------------------------------------------
+   模板可关闭
+   -------------------------------------------------------------------------- */
+
+.sheet-page--bare .corner-mark,
+.sheet-page--bare .absent-box {
+  display: none;
+}
+
+.sheet-page--bare {
+  border-color: #cfd4da;
+}
