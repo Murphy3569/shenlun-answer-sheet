@@ -139,6 +139,40 @@ export function buildCellGlyphs(
     primaries.push({ key: `${oi}`, text, compressed: occupant.render === 'compressed' })
   })
 
+  // ---- 序号格子：序号体和收尾符号当成一个整体连着排 ----
+  //
+  // 不走下面那套「行末共格」布局 —— 那是为「正文已经写满、只剩边角塞标点」设计的：
+  // 它会把正文缩到 80%、把标点固定排在右侧一列（x=0.74），
+  // 用在序号上就是「数字变小、点和数字隔老远」。
+  //
+  // 序号其实是「数字后面紧跟着一个点」，该像小数（1.5 → [1.][5]）那样连着写。
+  // 所以这里按实测墨迹宽度把两者挨着摆，序号体保持原大小。
+  if (cell.occupants.some((o) => o.render === 'marker')) {
+    const parts = cell.occupants.map((o) => {
+      const token = tokensById.get(o.tokenId)
+      return token ? token.rawText.slice(o.sliceStart, o.sliceEnd) : ''
+    })
+    const bodyText = parts[0] ?? ''
+    const tailText = parts.slice(1).join('')
+    const tailScale = 0.78
+    const bodyM = glyphInkMetrics(bodyText)
+    const tailM = glyphInkMetrics(tailText)
+    const bodyW = bodyM.inkWidthEm * BASE_FONT_SIZE
+    const tailFont = BASE_FONT_SIZE * tailScale
+    const tailW = tailM.inkWidthEm * tailFont
+    const total = bodyW + tailW
+    if (bodyText && tailText && total <= 0.94) {
+      const left = (1 - total) / 2
+      // 序号体：原大小
+      push('b', bodyText, left + bodyW / 2, 0.5, 1, 'glyph')
+      // 收尾符号：紧挨着右边。纵向不居中，而是保持标点自己的天然位置 ——
+      // 顿号的墨迹天然在下方，居中画会变成一个「·」。
+      push('t', tailText, left + bodyW + tailW / 2, 0.5 + tailM.offsetYEm * tailFont, tailScale, 'attach')
+      return out
+    }
+    // 整组墨迹放不下（例如「一、」这种两个全角字）→ 交给下面那套共格布局缩小处理
+  }
+
   // ---- 没有尾随标点：按原来的画法 ----
   if (trailing.length === 0) {
     cell.occupants.forEach((occupant, oi) => {

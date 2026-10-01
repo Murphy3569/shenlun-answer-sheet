@@ -521,8 +521,15 @@ export function matchCompound(text: string, index: number, profile: LayoutProfil
   const rules = profile.compoundRules
   const maxLen = Math.min(compoundMaxLength(rules), text.length - index)
   for (let len = maxLen; len >= 2; len--) {
-    const rule = rules[text.slice(index, index + len)]
-    if (rule) return rule
+    const key = text.slice(index, index + len)
+    const rule = rules[key]
+    if (!rule) continue
+    // 别把括号序号的开括号吞掉。
+    // 「主要有三点：（1）加强学习」里那个 （ 属于序号，不属于前面的冒号；
+    // 表里的「：（」组合一旦把它吃掉，后面的 1） 就散成两个格，序号就组不起来了。
+    const at = key.search(/[（(]/)
+    if (at >= 0 && BRACKET_MARKER_RE.test(text.slice(index + at, index + at + 4))) continue
+    return rule
   }
   // 模式规则：括号序号
   const rest = text.slice(index, index + 4)

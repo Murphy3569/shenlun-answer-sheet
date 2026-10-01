@@ -154,6 +154,16 @@ describe('序号共格', () => {
     expect(shown('(2)直觉的理解力').slice(0, 2)).toEqual(['(2)', '直'])
   })
 
+  it('括号序号紧跟标点时，前括号不能被前面的标点吞掉', () => {
+    // 「：（」在复合标点表里，会把序号的开括号吃掉，括号序号就组不起来了
+    const afterColon = shown('主要有三点：（1）加强学习')
+    expect(afterColon.some((c) => c === '：（')).toBe(false)
+    expect(afterColon).toContain('（1）')
+
+    expect(shown('要求如下。（1）遵守法律法规')).toContain('（1）')
+    expect(shown('他说：“（1）第一条”')).toContain('（1）')
+  })
+
   it('数字本身的分组不受影响', () => {
     // 小数由数字 token 自己处理，与序号共格无关
     expect(shown('1.5')).toEqual(['1.', '5'])

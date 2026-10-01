@@ -169,7 +169,7 @@ export function layoutBlock(input: BlockLayoutInput, profile: LayoutProfile): Bl
           atMarkerPosition &&
           isListMarkerBody(body) &&
           token.sourceStart === body.sourceEnd &&
-          squeezeInto(state, prevCell, token, tokenById)
+          squeezeInto(state, prevCell, token, tokenById, 'marker')
         ) {
           pushEvent(state, 'list-marker-squeeze', token, `序号共格：${body.rawText}${token.rawText}`)
           i += 1

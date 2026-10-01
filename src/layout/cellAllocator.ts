@@ -201,6 +201,7 @@ export function squeezeInto(
   target: Cell | undefined,
   token: Token,
   tokenByIdRef: Map<number, Token>,
+  render: 'squeezed' | 'marker' = 'squeezed',
 ): boolean {
   if (!target) return false
   if (target.empty) return false
@@ -226,7 +227,7 @@ export function squeezeInto(
     tokenId: token.id,
     sliceStart: 0,
     sliceEnd: token.rawText.length,
-    render: 'squeezed',
+    render,
   })
   target.sourceEnd = token.sourceEnd
   target.display += token.rawText

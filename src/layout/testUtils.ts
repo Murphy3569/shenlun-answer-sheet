@@ -53,7 +53,8 @@ export function renderCell(result: BlockLayoutResult, cell: BlockLayoutResult['c
     .map((o) => {
       const token = result.tokens.find((t) => t.id === o.tokenId)
       const text = token ? token.rawText.slice(o.sliceStart, o.sliceEnd) : '?'
-      if (o.render === 'squeezed') return `${text}~`
+      // squeezed 是行末挤占进来的，marker 是序号收尾符号 —— 两者都是「共格」，测试里用同一个记号
+      if (o.render === 'squeezed' || o.render === 'marker') return `${text}~`
       if (o.render === 'compressed') return `${text}#`
       return text
     })

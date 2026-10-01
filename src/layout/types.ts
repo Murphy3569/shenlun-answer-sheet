@@ -269,8 +269,9 @@ export interface CellOccupant {
    * - normal      普通占格
    * - squeezed    行末被挤占进来的标点，依附在本格右下角
    * - compressed  2 格宽的 Token（破折号/省略号）压缩进 1 格
+   * - marker      序号收尾符号，紧挨着序号体右边（像小数 1.5 那样连着写）
    */
-  render: 'normal' | 'squeezed' | 'compressed'
+  render: 'normal' | 'squeezed' | 'compressed' | 'marker'
   /** 覆盖时的手工字形位置（挤占标点用），缺省由渲染层决定 */
   glyph?: { x: number; y: number; scale: number }
 }

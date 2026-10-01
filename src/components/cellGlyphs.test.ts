@@ -35,6 +35,8 @@ const METRICS: Record<string, { offsetXEm: number; offsetYEm: number; inkWidthEm
   '2': { offsetXEm: 0, offsetYEm: 0, inkWidthEm: 0.5, inkHeightEm: 0.64 },
   '0': { offsetXEm: 0, offsetYEm: 0, inkWidthEm: 0.5, inkHeightEm: 0.64 },
   '6': { offsetXEm: 0, offsetYEm: 0, inkWidthEm: 0.5, inkHeightEm: 0.64 },
+  '1': { offsetXEm: -0.02, offsetYEm: 0, inkWidthEm: 0.34, inkHeightEm: 0.64 },
+  '.': { offsetXEm: -0.22, offsetYEm: 0.36, inkWidthEm: 0.14, inkHeightEm: 0.14 },
 }
 for (const [ch, m] of Object.entries(METRICS)) __setMetricsForTest('serif', ch, m)
 
@@ -81,6 +83,12 @@ const squeezed = (id: number, rawText: string): CellOccupant => ({
   sliceStart: 0,
   sliceEnd: rawText.length,
   render: 'squeezed',
+})
+const marker = (id: number, rawText: string): CellOccupant => ({
+  tokenId: id,
+  sliceStart: 0,
+  sliceEnd: rawText.length,
+  render: 'marker',
 })
 
 /** 字形在格内实际占的墨迹范围（用锚点把字身框换算回墨迹中心） */
@@ -203,5 +211,46 @@ describe('普通格保持原样', () => {
         expect(box.inkY).toBeLessThan(0.95)
       }
     }
+  })
+})
+
+describe('序号格子', () => {
+  const glyphsOf = (bodyText: string, tailText: string) =>
+    buildCellGlyphs(
+      cellOf([normal(0, bodyText), marker(1, tailText)]),
+      new Map([
+        [0, token(0, bodyText, 'NUMBER')],
+        [1, token(1, tailText, 'PUNCT')],
+      ]),
+      compoundRules,
+    )
+
+  it('序号体保持原大小 —— 不能被缩小让位给标点', () => {
+    // 用户明确反馈过「数字有点小」：行末共格那套会把正文缩到 0.8
+    for (const [body, tail] of [['2', '、'], ['1', '.'], ['2', '、']]) {
+      const bodyGlyph = glyphsOf(body, tail).find((g) => g.text === body)!
+      expect(bodyGlyph, `${body}${tail} 没找到序号体`).toBeTruthy()
+      expect(bodyGlyph.scale, `${body}${tail} 的序号体被缩小了`).toBe(1)
+    }
+  })
+
+  it('收尾符号紧挨着序号体右边，不飘到格子角落', () => {
+    const glyphs = glyphsOf('2', '、')
+    const body = inkBox(glyphs.find((g) => g.text === '2')!)
+    const tail = inkBox(glyphs.find((g) => g.text === '、')!)
+    const gap = tail.x0 - body.x1
+    expect(gap, '序号体和标点压在一起了').toBeGreaterThan(-0.02)
+    expect(gap, `数字和顿号之间空了 ${(gap * 100).toFixed(0)}% 格`).toBeLessThan(0.08)
+    expect(tail.x1, '收尾符号出格了').toBeLessThan(1)
+  })
+
+  it('序号里的点和小数里的点一样紧（两者该长得一样）', () => {
+    // 小数：数字和点是同一个 token 的两个字符，参照它的间距
+    const glyphs = glyphsOf('1', '.')
+    const body = inkBox(glyphs.find((g) => g.text === '1')!)
+    const tail = inkBox(glyphs.find((g) => g.text === '.')!)
+    const gap = tail.x0 - body.x1
+    expect(gap).toBeGreaterThan(-0.02)
+    expect(gap, `1 和 . 之间空了 ${(gap * 100).toFixed(0)}% 格`).toBeLessThan(0.06)
   })
 })
