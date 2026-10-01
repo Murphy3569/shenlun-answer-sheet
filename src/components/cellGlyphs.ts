@@ -175,17 +175,6 @@ export function buildCellGlyphs(
         out.push({ key: `${oi}`, text, x: 50, y: 50, scale: 1, className: 'glyph glyph--compressed' })
         return
       }
-      const compoundRule =
-        token.type === 'COMPOUND_PUNCT' && token.compoundKey
-          ? resolveCompoundRule(compoundRules, token.compoundKey)
-          : undefined
-      // 括号序号这类「整串渲染」的复合标点：字间距交给字体，放不下整体等比缩小
-      if (compoundRule && compoundRule.asText) {
-        const natural = widthEmOf(text, glyphInkMetrics(text)) * BASE_FONT_SIZE
-        const scale = natural <= MARKER_MAX_WIDTH ? 1 : MARKER_MAX_WIDTH / natural
-        out.push({ key: `${oi}-t`, text, x: 50, y: 50, scale, className: 'glyph glyph--positioned' })
-        return
-      }
       // 复合标点：组合表里的 x/y 就是「墨迹想落在哪」
       if (cell.occupants.length === 1 && cell.glyphs && cell.glyphs.length > 0) {
         cell.glyphs.forEach((g, gi) => {

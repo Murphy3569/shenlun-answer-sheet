@@ -11,7 +11,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { buildCellGlyphs } from './cellGlyphs'
-import { buildCompoundRules } from '../layout'
+import { buildCompoundRules, resolveCompoundRule } from '../layout'
 import type { Cell, CellOccupant, Token } from '../layout'
 import { inkMetricsOf } from './cellGlyphs'
 import { __setMetricsForTest, glyphInkMetrics, widthEmOf } from './glyphMetrics'
@@ -246,5 +246,44 @@ describe('序号格子', () => {
       const width = widthEmOf(g.text, glyphInkMetrics(g.text)) * 0.76 * g.scale
       expect(width, `${body}${tail} 整串宽 ${width.toFixed(2)} 格，出格了`).toBeLessThanOrEqual(0.95)
     }
+  })
+})
+
+describe('括号序号：分区画，不整串等比缩小', () => {
+  // 括号本来就窄（墨迹只占字身框约三成），跟数字一起缩会让数字小得看不清。
+  // 所以两侧窄段放括号、中间宽段放序号体，各自定字号。
+  const rule = resolveCompoundRule(buildCompoundRules(), '（一）')!
+
+  it('规则把格子分成三段，序号体明显大于括号', () => {
+    expect(rule.glyphs, '应该是三段').toHaveLength(3)
+    const [left, body, right] = rule.glyphs
+    expect(body.scale, '序号体应该比括号大').toBeGreaterThan(left.scale * 1.2)
+    expect(left.scale).toBe(right.scale)
+    // 三段从左到右排开
+    expect(left.x).toBeLessThan(body.x)
+    expect(body.x).toBeLessThan(right.x)
+  })
+
+  it('三段互不重叠，也不出格', () => {
+    const boxes = rule.glyphs.map((g) => {
+      const text = rule.key.slice(g.start, g.end)
+      const m = glyphInkMetrics(text)
+      const fontSize = 0.76 * g.scale
+      const halfW = (m.inkWidthEm * fontSize) / 2
+      return { x0: g.x - halfW, x1: g.x + halfW }
+    })
+    for (let i = 1; i < boxes.length; i++) {
+      expect(boxes[i].x0, `第 ${i} 段压到了前一段`).toBeGreaterThan(boxes[i - 1].x1)
+    }
+    expect(boxes[0].x0).toBeGreaterThan(0)
+    expect(boxes[boxes.length - 1].x1).toBeLessThan(1)
+  })
+
+  it('两位数序号要缩得比一位数小 —— 中间段就那么宽', () => {
+    const one = resolveCompoundRule(buildCompoundRules(), '（1）')!
+    const two = resolveCompoundRule(buildCompoundRules(), '（12）')!
+    expect(two.glyphs[1].scale).toBeLessThan(one.glyphs[1].scale)
+    // 两位数整段不能超出中间段（两侧还要留给括号）
+    expect(2 * 0.76 * two.glyphs[1].scale).toBeLessThanOrEqual(0.65)
   })
 })

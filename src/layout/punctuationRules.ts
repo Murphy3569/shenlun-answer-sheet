@@ -469,16 +469,26 @@ const BRACKET_MARKER_RE = /^[（(]([0-9０-９]{1,2}|[一二三四五六七八�
 function bracketMarkerRuleFrom(key: string): CompoundRule | null {
   if (!BRACKET_MARKER_RE.test(key)) return null
   const bodyEnd = key.length - 1
+  const body = key.slice(1, bodyEnd)
+  // 把格子分成三段：两侧窄段放括号、中间宽段放序号体。
+  //
+  // 不整串等比缩小的原因：括号本来就窄（墨迹只占字身框的约 30%），
+  // 跟数字一起缩会让数字小得看不清。分开定字号之后，括号缩到 0.52 仍然清楚，
+  // 而序号体可以按中间那段的宽度尽量放大。
+  const SIDE_SCALE = 0.58
+  const MID_LEFT = 0.18
+  const MID_RIGHT = 0.82
+  const midWidth = MID_RIGHT - MID_LEFT
+  // 序号体占 midWidth 格，字号 = 可用宽度 / （字数 × 基准字号 0.76）
+  const bodyScale = Math.min(0.92, midWidth / (Math.max(1, body.length) * 0.76))
   return labelGlyphs({
     key,
     cellCount: 1,
-    asText: true,
     note: '括号序号：括号与序号共占一格（GB/T 15834 B.3.4 括号序次语后不加点号）',
-    // glyphs 只作占位（asText 走整串渲染），保留是为了别的消费方能按字形取到子串
     glyphs: [
-      glyph(0, 1, 0, { x: 0.24, y: 0.5 }, 0.8),
-      glyph(1, bodyEnd, 0, { x: 0.5, y: 0.5 }, 0.92),
-      glyph(bodyEnd, key.length, 0, { x: 0.76, y: 0.5 }, 0.8),
+      glyph(0, 1, 0, { x: MID_LEFT - 0.07, y: 0.5 }, SIDE_SCALE),
+      glyph(1, bodyEnd, 0, { x: (MID_LEFT + MID_RIGHT) / 2, y: 0.5 }, bodyScale),
+      glyph(bodyEnd, key.length, 0, { x: MID_RIGHT + 0.07, y: 0.5 }, SIDE_SCALE),
     ],
   })
 }
