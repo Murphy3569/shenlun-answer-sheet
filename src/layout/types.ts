@@ -135,6 +135,12 @@ export interface CompoundRule {
   cellCount: number
   /** 各字形的格内位置 */
   glyphs: GlyphPlacement[]
+  /**
+   * 整组按**一个文本串**画，而不是按 glyphs 手工摆每个字形。
+   * 括号序号（（1）（一））走这条路：字间距交给字体，放不下时整体等比缩小，
+   * 比手工摆位自然得多。
+   */
+  asText?: boolean
   /** 规则依据说明，导出 README / 调试面板用 */
   note?: string
 }

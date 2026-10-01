@@ -14,7 +14,7 @@ import { buildCellGlyphs } from './cellGlyphs'
 import { buildCompoundRules } from '../layout'
 import type { Cell, CellOccupant, Token } from '../layout'
 import { inkMetricsOf } from './cellGlyphs'
-import { __setMetricsForTest } from './glyphMetrics'
+import { __setMetricsForTest, glyphInkMetrics, widthEmOf } from './glyphMetrics'
 
 /**
  * 注入一套**真实的**墨迹度量（取自 Noto Serif SC 的实测值），
@@ -225,32 +225,26 @@ describe('序号格子', () => {
       compoundRules,
     )
 
-  it('序号体保持原大小 —— 不能被缩小让位给标点', () => {
-    // 用户明确反馈过「数字有点小」：行末共格那套会把正文缩到 0.8
-    for (const [body, tail] of [['2', '、'], ['1', '.'], ['2', '、']]) {
-      const bodyGlyph = glyphsOf(body, tail).find((g) => g.text === body)!
-      expect(bodyGlyph, `${body}${tail} 没找到序号体`).toBeTruthy()
-      expect(bodyGlyph.scale, `${body}${tail} 的序号体被缩小了`).toBe(1)
+  it('整串按一个文本串画 —— 和小数（1.5 → [1.][5]）同一套', () => {
+    const g = glyphsOf('1', '.')
+    expect(g, '应该只画一个字形').toHaveLength(1)
+    expect(g[0].text).toBe('1.')
+    expect(g[0].scale, '放得下就该保持原大小').toBe(1)
+  })
+
+  it('放不下时整体等比缩小，而不是把两个字形挤在一起', () => {
+    const g = glyphsOf('一', '、')[0]
+    expect(g.text).toBe('一、')
+    expect(g.scale).toBeLessThan(1)
+    // 缩得太狠会看不清
+    expect(g.scale).toBeGreaterThan(0.5)
+  })
+
+  it('任何组合都不会画出格', () => {
+    for (const [body, tail] of [['1', '、'], ['2', '、'], ['一', '、'], ['1', '.'], ['2', '）']]) {
+      const g = glyphsOf(body, tail)[0]
+      const width = widthEmOf(g.text, glyphInkMetrics(g.text)) * 0.76 * g.scale
+      expect(width, `${body}${tail} 整串宽 ${width.toFixed(2)} 格，出格了`).toBeLessThanOrEqual(0.95)
     }
-  })
-
-  it('收尾符号紧挨着序号体右边，不飘到格子角落', () => {
-    const glyphs = glyphsOf('2', '、')
-    const body = inkBox(glyphs.find((g) => g.text === '2')!)
-    const tail = inkBox(glyphs.find((g) => g.text === '、')!)
-    const gap = tail.x0 - body.x1
-    expect(gap, '序号体和标点压在一起了').toBeGreaterThan(-0.02)
-    expect(gap, `数字和顿号之间空了 ${(gap * 100).toFixed(0)}% 格`).toBeLessThan(0.08)
-    expect(tail.x1, '收尾符号出格了').toBeLessThan(1)
-  })
-
-  it('序号里的点和小数里的点一样紧（两者该长得一样）', () => {
-    // 小数：数字和点是同一个 token 的两个字符，参照它的间距
-    const glyphs = glyphsOf('1', '.')
-    const body = inkBox(glyphs.find((g) => g.text === '1')!)
-    const tail = inkBox(glyphs.find((g) => g.text === '.')!)
-    const gap = tail.x0 - body.x1
-    expect(gap).toBeGreaterThan(-0.02)
-    expect(gap, `1 和 . 之间空了 ${(gap * 100).toFixed(0)}% 格`).toBeLessThan(0.06)
   })
 })

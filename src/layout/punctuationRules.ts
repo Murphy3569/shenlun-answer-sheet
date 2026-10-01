@@ -472,7 +472,9 @@ function bracketMarkerRuleFrom(key: string): CompoundRule | null {
   return labelGlyphs({
     key,
     cellCount: 1,
+    asText: true,
     note: '括号序号：括号与序号共占一格（GB/T 15834 B.3.4 括号序次语后不加点号）',
+    // glyphs 只作占位（asText 走整串渲染），保留是为了别的消费方能按字形取到子串
     glyphs: [
       glyph(0, 1, 0, { x: 0.24, y: 0.5 }, 0.8),
       glyph(1, bodyEnd, 0, { x: 0.5, y: 0.5 }, 0.92),

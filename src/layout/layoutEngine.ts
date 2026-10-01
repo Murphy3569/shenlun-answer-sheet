@@ -161,9 +161,16 @@ export function layoutBlock(input: BlockLayoutInput, profile: LayoutProfile): Bl
         const prevCell = state.rowCells[col - 1]
         const owner = prevCell?.occupants[0]
         const body = owner ? tokenById.get(owner.tokenId) : undefined
+        // 收尾符号是「点」时不再要求位置：数字后面跟点号，除了序号几乎没别的可能
+        // （小数早被数字 token 自己吃掉了），而「1. 2. 3.」这类写法本来就常常连着排一行 ——
+        // GB/T 15834 的标准示例本身就是行中写的：「1.传递信息……；2.确定关系……」。
+        // 顿号不一样：`1、2` 是并列数据，所以那个仍然只认行首/句首。
+        const tailIsDot = token.rawText === '.' || token.rawText === '．'
         const atMarkerPosition =
           body !== undefined &&
-          (body.id === state.rowFirstTokenId || isSentenceStart(text, body.sourceStart))
+          (tailIsDot ||
+            body.id === state.rowFirstTokenId ||
+            isSentenceStart(text, body.sourceStart))
         if (
           body &&
           atMarkerPosition &&

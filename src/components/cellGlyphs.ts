@@ -24,11 +24,14 @@ import {
   SEPARATOR_CHARS,
   resolveCompoundRule,
 } from '../layout'
-import { glyphInkMetrics } from './glyphMetrics'
+import { glyphInkMetrics, widthEmOf } from './glyphMetrics'
 import type { Cell, CellOccupant, CompoundRule, Token } from '../layout'
 
 /** 普通字形相对格子的基准字号（与 sheet.css 里 .glyph 的 font-size 保持一致） */
 const BASE_FONT_SIZE = 0.76
+
+/** 序号整串占格上限 —— 留一点点余量，免得贴着格线 */
+const MARKER_MAX_WIDTH = 0.94
 
 export interface GlyphRender {
   key: string
@@ -139,38 +142,26 @@ export function buildCellGlyphs(
     primaries.push({ key: `${oi}`, text, compressed: occupant.render === 'compressed' })
   })
 
-  // ---- 序号格子：序号体和收尾符号当成一个整体连着排 ----
+  // ---- 序号格子：整串按「一个文本串」画 ----
   //
-  // 不走下面那套「行末共格」布局 —— 那是为「正文已经写满、只剩边角塞标点」设计的：
-  // 它会把正文缩到 80%、把标点固定排在右侧一列（x=0.74），
-  // 用在序号上就是「数字变小、点和数字隔老远」。
+  // 和小数（1.5 → [1.][5]）是同一套画法：一个字串，字间距交给字体。
   //
-  // 序号其实是「数字后面紧跟着一个点」，该像小数（1.5 → [1.][5]）那样连着写。
-  // 所以这里按实测墨迹宽度把两者挨着摆，序号体保持原大小。
+  // 上一版按「墨迹相邻」手工摆位，结果是两个字形**叠在一起** ——
+  // 墨迹宽只说明黑的部分有多宽，两个字形之间该留多大空是字体的 advance 说了算，
+  // 按墨迹贴边摆放必然挤在一起。整串放不下时（例如「一、」两个全角字）整体等比缩小，
+  // 字间距仍然由字体决定，不会挤。
   if (cell.occupants.some((o) => o.render === 'marker')) {
-    const parts = cell.occupants.map((o) => {
-      const token = tokensById.get(o.tokenId)
-      return token ? token.rawText.slice(o.sliceStart, o.sliceEnd) : ''
-    })
-    const bodyText = parts[0] ?? ''
-    const tailText = parts.slice(1).join('')
-    const tailScale = 0.78
-    const bodyM = glyphInkMetrics(bodyText)
-    const tailM = glyphInkMetrics(tailText)
-    const bodyW = bodyM.inkWidthEm * BASE_FONT_SIZE
-    const tailFont = BASE_FONT_SIZE * tailScale
-    const tailW = tailM.inkWidthEm * tailFont
-    const total = bodyW + tailW
-    if (bodyText && tailText && total <= 0.94) {
-      const left = (1 - total) / 2
-      // 序号体：原大小
-      push('b', bodyText, left + bodyW / 2, 0.5, 1, 'glyph')
-      // 收尾符号：紧挨着右边。纵向不居中，而是保持标点自己的天然位置 ——
-      // 顿号的墨迹天然在下方，居中画会变成一个「·」。
-      push('t', tailText, left + bodyW + tailW / 2, 0.5 + tailM.offsetYEm * tailFont, tailScale, 'attach')
-      return out
-    }
-    // 整组墨迹放不下（例如「一、」这种两个全角字）→ 交给下面那套共格布局缩小处理
+    const text = cell.occupants
+      .map((o) => {
+        const token = tokensById.get(o.tokenId)
+        return token ? token.rawText.slice(o.sliceStart, o.sliceEnd) : ''
+      })
+      .join('')
+    const natural = widthEmOf(text, glyphInkMetrics(text)) * BASE_FONT_SIZE
+    const scale = natural <= MARKER_MAX_WIDTH ? 1 : MARKER_MAX_WIDTH / natural
+    // 用 glyph--positioned：只有这个类才会把 scale 写成行内字号（.glyph 的字号是 CSS 写死的）
+    out.push({ key: 'm', text, x: 50, y: 50, scale, className: 'glyph glyph--positioned' })
+    return out
   }
 
   // ---- 没有尾随标点：按原来的画法 ----
@@ -182,6 +173,17 @@ export function buildCellGlyphs(
 
       if (occupant.render === 'compressed') {
         out.push({ key: `${oi}`, text, x: 50, y: 50, scale: 1, className: 'glyph glyph--compressed' })
+        return
+      }
+      const compoundRule =
+        token.type === 'COMPOUND_PUNCT' && token.compoundKey
+          ? resolveCompoundRule(compoundRules, token.compoundKey)
+          : undefined
+      // 括号序号这类「整串渲染」的复合标点：字间距交给字体，放不下整体等比缩小
+      if (compoundRule && compoundRule.asText) {
+        const natural = widthEmOf(text, glyphInkMetrics(text)) * BASE_FONT_SIZE
+        const scale = natural <= MARKER_MAX_WIDTH ? 1 : MARKER_MAX_WIDTH / natural
+        out.push({ key: `${oi}-t`, text, x: 50, y: 50, scale, className: 'glyph glyph--positioned' })
         return
       }
       // 复合标点：组合表里的 x/y 就是「墨迹想落在哪」

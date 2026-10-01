@@ -21,6 +21,15 @@ export interface GlyphInkMetrics {
   /** 墨迹宽 / 高（em），用于判断会不会被格子裁到 */
   inkWidthEm: number
   inkHeightEm: number
+  /**
+   * 这一串字符**自然排下来**占多宽（em，含字间距）。
+   *
+   * 墨迹宽只说明「黑的部分有多宽」，两个字形之间该留多大空要看字体的 advance。
+   * 序号（1、 一、 （1））要像小数那样连着写，靠的就是这个值 ——
+   * 按它算总宽，放不下时整体等比缩小，字间距始终由字体决定。
+   * 旧数据可能没有这个字段，取值处一律用 widthEmOf() 兜底。
+   */
+  advanceEm?: number
 }
 
 /**
@@ -28,7 +37,26 @@ export interface GlyphInkMetrics {
  * 取一个偏保守的中文标点墨迹尺寸，宁可让排布松一点，也不要因为「默认墨迹 1em 宽」
  * 把位置夹得离奇。
  */
-const FALLBACK_METRICS: GlyphInkMetrics = { offsetXEm: 0, offsetYEm: 0, inkWidthEm: 0.4, inkHeightEm: 0.4 }
+const FALLBACK_METRICS: GlyphInkMetrics = {
+  offsetXEm: 0,
+  offsetYEm: 0,
+  inkWidthEm: 0.4,
+  inkHeightEm: 0.4,
+  // 故意不填 advanceEm：量不到时交给 widthEmOf 按字符估
+  // （写死 1em 会让「一、」这种多字串被当成一个字宽）
+}
+
+/**
+ * 一串字符自然排下来的宽度（em）。
+ * 优先用实测的 advance；旧数据没这个字段时按字符估：
+ * 中日韩全角 1em、其余（数字、半角字母标点）0.5em。
+ */
+export function widthEmOf(text: string, metrics: GlyphInkMetrics): number {
+  if (metrics.advanceEm !== undefined) return metrics.advanceEm
+  let w = 0
+  for (const ch of text) w += /[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? 1 : 0.5
+  return w
+}
 
 const cache = new Map<string, GlyphInkMetrics>()
 
@@ -91,6 +119,7 @@ function measure(text: string, fontFamily: string): GlyphInkMetrics {
       offsetYEm: (baselineFromCenter + inkCenterFromBaseline) / REFERENCE_SIZE,
       inkWidthEm: (left + right) / REFERENCE_SIZE,
       inkHeightEm: (inkAscent + inkDescent) / REFERENCE_SIZE,
+      advanceEm: advance / REFERENCE_SIZE,
     }
   } catch {
     return FALLBACK_METRICS
