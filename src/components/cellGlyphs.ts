@@ -31,7 +31,13 @@ import type { Cell, CellOccupant, CompoundRule, Token } from '../layout'
 const BASE_FONT_SIZE = 0.76
 
 /** 序号整串占格上限 —— 留一点点余量，免得贴着格线 */
-const MARKER_MAX_WIDTH = 0.94
+const MARKER_MAX_WIDTH = 0.97
+/** 序号体那一段（整串放不下时按分区画） */
+const MARKER_BODY_LEFT = 0.06
+const MARKER_BODY_RIGHT = 0.72
+const MARKER_BODY_MAX_SCALE = 0.9
+/** 收尾符号那一段：它的墨迹本来就小，缩到这个倍率仍然清楚 */
+const MARKER_TAIL_SCALE = 0.68
 
 export interface GlyphRender {
   key: string
@@ -142,25 +148,49 @@ export function buildCellGlyphs(
     primaries.push({ key: `${oi}`, text, compressed: occupant.render === 'compressed' })
   })
 
-  // ---- 序号格子：整串按「一个文本串」画 ----
+  // ---- 序号格子 ----
   //
-  // 和小数（1.5 → [1.][5]）是同一套画法：一个字串，字间距交给字体。
+  // 和小数（1.5 → [1.][5]）同一套：**放得下就整串当一个文本串画**，字间距交给字体。
   //
-  // 上一版按「墨迹相邻」手工摆位，结果是两个字形**叠在一起** ——
-  // 墨迹宽只说明黑的部分有多宽，两个字形之间该留多大空是字体的 advance 说了算，
-  // 按墨迹贴边摆放必然挤在一起。整串放不下时（例如「一、」两个全角字）整体等比缩小，
-  // 字间距仍然由字体决定，不会挤。
+  // 放不下时（例如「一、」是两个全角字）走分区：序号体占左边大段、收尾符号占右边窄段，
+  // 各自定字号。不整串等比缩小的原因和括号序号一样 —— 顿号的墨迹只占字身框约 25%，
+  // 跟着序号体一起缩等于白白浪费右边那一大块，序号体会被压得明显比正文小。
   if (cell.occupants.some((o) => o.render === 'marker')) {
-    const text = cell.occupants
-      .map((o) => {
-        const token = tokensById.get(o.tokenId)
-        return token ? token.rawText.slice(o.sliceStart, o.sliceEnd) : ''
-      })
-      .join('')
+    const parts = cell.occupants.map((o) => {
+      const token = tokensById.get(o.tokenId)
+      return token ? token.rawText.slice(o.sliceStart, o.sliceEnd) : ''
+    })
+    const text = parts.join('')
+    const bodyText = parts[0] ?? ''
+    const tailText = parts.slice(1).join('')
     const natural = widthEmOf(text, glyphInkMetrics(text)) * BASE_FONT_SIZE
-    const scale = natural <= MARKER_MAX_WIDTH ? 1 : MARKER_MAX_WIDTH / natural
-    // 用 glyph--positioned：只有这个类才会把 scale 写成行内字号（.glyph 的字号是 CSS 写死的）
-    out.push({ key: 'm', text, x: 50, y: 50, scale, className: 'glyph glyph--positioned' })
+
+    if (natural <= MARKER_MAX_WIDTH || !bodyText || !tailText) {
+      out.push({ key: 'm', text, x: 50, y: 50, scale: 1, className: 'glyph glyph--positioned' })
+      return out
+    }
+
+    const bodyM = glyphInkMetrics(bodyText)
+    const tailM = glyphInkMetrics(tailText)
+    const bodyAdv = widthEmOf(bodyText, bodyM)
+    const bodyScale = Math.min(
+      MARKER_BODY_MAX_SCALE,
+      (MARKER_BODY_RIGHT - MARKER_BODY_LEFT) / (bodyAdv * BASE_FONT_SIZE),
+    )
+    const bodyW = bodyAdv * BASE_FONT_SIZE * bodyScale
+    const tailW = tailM.inkWidthEm * BASE_FONT_SIZE * MARKER_TAIL_SCALE
+    const gap = 0.02
+    const left = Math.max(0.03, (1 - (bodyW + gap + tailW)) / 2)
+    push('b', bodyText, left + bodyW / 2, 0.5, bodyScale, 'glyph glyph--positioned')
+    // 纵向保持标点自己的天然位置（顿号在下，居中画会变成「·」）
+    push(
+      't',
+      tailText,
+      left + bodyW + gap + tailW / 2,
+      0.5 + tailM.offsetYEm * BASE_FONT_SIZE * MARKER_TAIL_SCALE,
+      MARKER_TAIL_SCALE,
+      'glyph glyph--positioned',
+    )
     return out
   }
 

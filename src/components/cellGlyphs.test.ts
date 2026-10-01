@@ -14,7 +14,7 @@ import { buildCellGlyphs } from './cellGlyphs'
 import { buildCompoundRules, resolveCompoundRule } from '../layout'
 import type { Cell, CellOccupant, Token } from '../layout'
 import { inkMetricsOf } from './cellGlyphs'
-import { __setMetricsForTest, glyphInkMetrics, widthEmOf } from './glyphMetrics'
+import { __setMetricsForTest, glyphInkMetrics } from './glyphMetrics'
 
 /**
  * 注入一套**真实的**墨迹度量（取自 Noto Serif SC 的实测值），
@@ -224,27 +224,37 @@ describe('序号格子', () => {
       ]),
       compoundRules,
     )
+  const byText = (gs: ReturnType<typeof glyphsOf>, t: string) => gs.find((g) => g.text === t)!
 
-  it('整串按一个文本串画 —— 和小数（1.5 → [1.][5]）同一套', () => {
+  it('放得下就整串一个文本串 —— 和小数（1.5 → [1.][5]）同一套', () => {
     const g = glyphsOf('1', '.')
     expect(g, '应该只画一个字形').toHaveLength(1)
     expect(g[0].text).toBe('1.')
     expect(g[0].scale, '放得下就该保持原大小').toBe(1)
   })
 
-  it('放不下时整体等比缩小，而不是把两个字形挤在一起', () => {
-    const g = glyphsOf('一', '、')[0]
-    expect(g.text).toBe('一、')
-    expect(g.scale).toBeLessThan(1)
-    // 缩得太狠会看不清
-    expect(g.scale).toBeGreaterThan(0.5)
+  it('放不下时分区画：序号体保持接近正文的大小', () => {
+    // 「一、」是两个全角字，整串等比缩小会把它压到 0.62。
+    // 顿号的墨迹只占字身框约 25%，跟着一起缩等于白白浪费右边一大块。
+    const g = glyphsOf('一', '、')
+    expect(g, '应该分成两段').toHaveLength(2)
+    const body = byText(g, '一')
+    const tail = byText(g, '、')
+    expect(body.scale, `序号体只有 ${body.scale.toFixed(2)}，太小了`).toBeGreaterThan(0.8)
+    expect(tail.scale, '收尾符号应该明显小于序号体').toBeLessThan(body.scale * 0.85)
   })
 
-  it('任何组合都不会画出格', () => {
-    for (const [body, tail] of [['1', '、'], ['2', '、'], ['一', '、'], ['1', '.'], ['2', '）']]) {
-      const g = glyphsOf(body, tail)[0]
-      const width = widthEmOf(g.text, glyphInkMetrics(g.text)) * 0.76 * g.scale
-      expect(width, `${body}${tail} 整串宽 ${width.toFixed(2)} 格，出格了`).toBeLessThanOrEqual(0.95)
+  it('分区之后两段不重叠、都不出格', () => {
+    for (const [body, tail] of [['一', '、'], ['二', '、'], ['1', '、'], ['2', '）']]) {
+      const g = glyphsOf(body, tail)
+      const boxes = g.map((x) => inkBox(x))
+      for (let i = 1; i < boxes.length; i++) {
+        expect(boxes[i].x0, `${body}${tail} 的两段压在一起了`).toBeGreaterThan(boxes[i - 1].x1)
+      }
+      for (const b of boxes) {
+        expect(b.x0, `${body}${tail} 左边出格`).toBeGreaterThan(-0.02)
+        expect(b.x1, `${body}${tail} 右边出格`).toBeLessThan(1.02)
+      }
     }
   })
 })
