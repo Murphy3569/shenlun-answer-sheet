@@ -206,6 +206,11 @@ export interface LayoutProfile {
   lineEndStrategy: LineEndStrategy
   /** 破折号 / 省略号在行末只剩 1 格时压缩进 1 格（否则整体移到下一行） */
   compressWideTokenAtLineEnd: boolean
+  /**
+   * 序号共格：行首的「1.」「一、」「1）」这类序号，让收尾符号与序号体共占一格。
+   * 只在序号真的落在行首时才生效 —— 普通行文里的「分别为1、2」不受影响。
+   */
+  pairListMarker: boolean
 
   // ---- 复合标点 ----
   /** 启用复合标点组合表 */
@@ -464,6 +469,8 @@ export type RuleEventType =
   | 'open-punct-moved-from-line-end'
   /** 超长 Token（宽过整行）被强制拆分 */
   | 'forced-split'
+  /** 序号共格：行首的序号与紧跟的 . 、 ） 共占一格 */
+  | 'list-marker-squeeze'
 
 export interface RuleEvent {
   type: RuleEventType

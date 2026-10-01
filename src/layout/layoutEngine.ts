@@ -30,6 +30,9 @@ import {
   canOnlySqueeze,
   canSplitFreely,
   isCompressibleWideToken,
+  isListMarkerBody,
+  isListMarkerTail,
+  isSentenceStart,
   isWiderThanLine,
   landsOnLastColumn,
   lineRulesOf,
@@ -105,6 +108,7 @@ export function layoutBlock(input: BlockLayoutInput, profile: LayoutProfile): Bl
     kind: 'normal',
     align: 'left',
     rowBlank: true,
+    rowFirstTokenId: null,
   }
 
   const columns = profile.columns
@@ -144,6 +148,34 @@ export function layoutBlock(input: BlockLayoutInput, profile: LayoutProfile): Bl
       const w = token.cellWidth
       let col = state.rowCells.length
       const remaining = columns - col
+
+      // ⓪ 序号共格：序号（1. 一、 1）…）让收尾符号与序号体共占一格。
+      //
+      // 「只认序号」靠位置，不靠标点长相。两种位置算序号：
+      //   · 行首 —— 这个数字是本行第一个落格的内容（rowFirstTokenId）
+      //   · 句首 —— 紧挨在句末点号 / 冒号 / 省略号之后
+      //     （申论里序号更多是接着上一句写的：「……成效明显。1、加强学习」）
+      // 于是「我国石油产量和进口量分别为1、2」里的 1、 两头都不沾，
+      // 不会被并进一格 —— 那是普通枚举，不是序号。
+      if (profile.pairListMarker && col > 0 && isListMarkerTail(token)) {
+        const prevCell = state.rowCells[col - 1]
+        const owner = prevCell?.occupants[0]
+        const body = owner ? tokenById.get(owner.tokenId) : undefined
+        const atMarkerPosition =
+          body !== undefined &&
+          (body.id === state.rowFirstTokenId || isSentenceStart(text, body.sourceStart))
+        if (
+          body &&
+          atMarkerPosition &&
+          isListMarkerBody(body) &&
+          token.sourceStart === body.sourceEnd &&
+          squeezeInto(state, prevCell, token, tokenById)
+        ) {
+          pushEvent(state, 'list-marker-squeeze', token, `序号共格：${body.rawText}${token.rawText}`)
+          i += 1
+          continue
+        }
+      }
 
       // ① 行尾禁则：开引号不能落在最后一格
       if (mustAvoidLineEnd(token, rules, profile) && landsOnLastColumn(col, w, columns) && col > 0) {

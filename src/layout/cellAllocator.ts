@@ -9,6 +9,7 @@
 
 import { splitIntoCellSlices } from './numberRules'
 import { lineRulesOf } from './lineBreakRules'
+import { resolveCompoundRule } from './punctuationRules'
 import type { Cell, LayoutProfile, ParagraphMeta, Row, RuleEvent, RuleEventType, Token } from './types'
 
 export function emptyCell(column: number, offset: number, paragraph: number): Cell {
@@ -42,6 +43,11 @@ export interface BuilderState {
   kind: ParagraphMeta['kind']
   align: ParagraphMeta['align']
   rowBlank: boolean
+  /**
+   * 本行第一个落格的内容 Token（段首缩进 / 居中留白的占位格不算）。
+   * 用来判断「一个序号是不是真的落在行首」—— 序号共格只在这个前提下生效。
+   */
+  rowFirstTokenId: number | null
 }
 
 export function pushEvent(state: BuilderState, type: RuleEventType, token: Token, detail: string): void {
@@ -58,7 +64,7 @@ export function fillCells(
   const profile = state.profile
 
   if (token.type === 'COMPOUND_PUNCT' && token.compoundKey) {
-    const rule = profile.compoundRules[token.compoundKey]
+    const rule = resolveCompoundRule(profile.compoundRules, token.compoundKey)
     if (rule) {
       // 按这一格的「切片区间」挑字形，不能按 g.cell === cellIndex 挑。
       // Token 被拆成 head/tail 之后 cellIndex 从 0 重新数，而字形表里的 cell
@@ -119,12 +125,14 @@ export function flushRow(state: BuilderState, isBlankLine: boolean): void {
   state.cells.push(...row.cells)
   state.rowCells = []
   state.rowEndOffset = -1
+  state.rowFirstTokenId = null
 }
 
 export function startRow(state: BuilderState, offset: number): void {
   state.rowCells = []
   state.rowEndOffset = offset
   state.rowBlank = true
+  state.rowFirstTokenId = null
 }
 
 /**
@@ -151,6 +159,8 @@ export function wrapRow(state: BuilderState, nextOffset: number): void {
 // ---------------------------------------------------------------------------
 
 export function placeToken(state: BuilderState, token: Token): void {
+  // 落格之前这一行还是空的（只有缩进占位格）→ 它就是本行第一个内容
+  const startsLine = state.rowBlank
   for (let c = 0; c < token.cellWidth; c++) {
     const cell = emptyCell(state.rowCells.length, token.sourceStart, state.paragraph)
     fillCells(state, token, c, cell)
@@ -162,6 +172,7 @@ export function placeToken(state: BuilderState, token: Token): void {
   const last = state.rowCells[state.rowCells.length - 1]
   state.rowEndOffset = last ? last.sourceEnd : token.sourceEnd
   state.rowBlank = false
+  if (startsLine) state.rowFirstTokenId = token.id
 }
 
 /** 2 格宽 Token 压进 1 格 */
@@ -219,6 +230,11 @@ export function squeezeInto(
   })
   target.sourceEnd = token.sourceEnd
   target.display += token.rawText
+  // 本行的「已覆盖到哪」也要跟着前移。
+  // 漏了这句，这一行后面补的空白格会拿到过期的 offset ——
+  // 行末挤占时这一行已经排满、后面没有补空格，所以一直没暴露；
+  // 一旦在行中共格（序号共格），光标映射就会找不到字，一路找到下一行去。
+  state.rowEndOffset = token.sourceEnd
   state.rowBlank = false
   return true
 }

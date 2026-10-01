@@ -16,7 +16,14 @@
  * 复合标点、挤占时才需要真正挪位置。
  */
 
-import { CLOSE_PUNCT_CHARS, OPEN_PUNCT_CHARS, PUNCT_END_CHARS, PUNCT_INNER_CHARS, SEPARATOR_CHARS } from '../layout'
+import {
+  CLOSE_PUNCT_CHARS,
+  OPEN_PUNCT_CHARS,
+  PUNCT_END_CHARS,
+  PUNCT_INNER_CHARS,
+  SEPARATOR_CHARS,
+  resolveCompoundRule,
+} from '../layout'
 import { glyphInkMetrics } from './glyphMetrics'
 import type { Cell, CellOccupant, CompoundRule, Token } from '../layout'
 
@@ -118,7 +125,10 @@ export function buildCellGlyphs(
 
     if (occupant.render === 'squeezed') {
       // 复合标点要拆成单个字形分别落位，普通标点就是一个字形
-      const rule = token.type === 'COMPOUND_PUNCT' && token.compoundKey ? compoundRules[token.compoundKey] : undefined
+      const rule =
+        token.type === 'COMPOUND_PUNCT' && token.compoundKey
+          ? resolveCompoundRule(compoundRules, token.compoundKey)
+          : undefined
       if (rule) {
         for (const g of rule.glyphs) trailing.push(token.rawText.slice(g.start, g.end))
       } else {

@@ -12,7 +12,7 @@
  *   ⑤ 强制拆分   比一整行还宽的 Token    → 只能拆
  */
 
-import { compoundNoLineEnd, compoundNoLineStart } from './punctuationRules'
+import { compoundNoLineEnd, compoundNoLineStart, resolveCompoundRule } from './punctuationRules'
 import type { LayoutProfile, Token } from './types'
 
 interface TokenLineRules {
@@ -23,7 +23,7 @@ interface TokenLineRules {
 
 export function lineRulesOf(token: Token, profile: LayoutProfile): TokenLineRules {
   if (token.type === 'COMPOUND_PUNCT' && token.compoundKey) {
-    const rule = profile.compoundRules[token.compoundKey]
+    const rule = resolveCompoundRule(profile.compoundRules, token.compoundKey)
     if (rule) {
       return {
         noLineStart: compoundNoLineStart(rule),
@@ -87,3 +87,56 @@ export function isWiderThanLine(token: Token, columns: number): boolean {
 }
 
 export type { TokenLineRules }
+
+
+// ---------------------------------------------------------------------------
+// 序号共格
+// ---------------------------------------------------------------------------
+
+/** 中文数词：能当序号用的那些字 */
+const CN_NUMERAL_CHARS = '一二三四五六七八九十百千万亿零两壹贰叁肆伍陆柒捌玖拾'
+
+/** 序号体后面那个「收尾符号」：1. 一. 1、 一、 1) 1） */
+const LIST_MARKER_TAILS = '.．、)）'
+
+/**
+ * 这是不是序号的收尾符号。
+ * 只认这五种，且必须是单独一个字符 —— `……`、`——` 这类多字符标号不参与。
+ */
+export function isListMarkerTail(token: Token): boolean {
+  if (token.rawText.length !== 1) return false
+  if (token.type !== 'PUNCT' && token.type !== 'CLOSE_PUNCT') return false
+  return LIST_MARKER_TAILS.includes(token.rawText)
+}
+
+/**
+ * 这是不是「序号体」。
+ *
+ * 只认两种情况，且都必须只占一格：
+ *   · 阿拉伯数字串，占 1 格 → 1~2 位（两位数字按两两成组规则正好占一格）
+ *   · 单个中文数词 → 一 / 二 / … / 十
+ *
+ * 限制在 1 格内是为了不改变数字本身的分组方式：
+ * 「2026.」这种既不像序号、也会让 2026 被硬塞进一格，直接不认。
+ */
+export function isListMarkerBody(token: Token): boolean {
+  if (token.type === 'NUMBER') return token.cellWidth === 1
+  if (token.type === 'CHAR') return token.rawText.length === 1 && CN_NUMERAL_CHARS.includes(token.rawText)
+  return false
+}
+
+
+/**
+ * 这个 offset 是不是「句首」—— 序号不一定在第一行的开头，
+ * 申论里更多时候是接着上一句写的：「……取得了明显成效。1、加强学习」。
+ *
+ * 判据是紧挨着它的前一个字符：句末点号 / 冒号 / 省略号之后，都算句首。
+ * 故意**不**收分号和逗号：像「分别为1、2；3、4」这种并列枚举，
+ * 后面那个 3 前面就是分号，但它是数据不是序号。
+ */
+const SENTENCE_BOUNDARY_CHARS = '。！？：…！？!?:'
+
+export function isSentenceStart(text: string, offset: number): boolean {
+  if (offset <= 0) return true
+  return SENTENCE_BOUNDARY_CHARS.includes(text[offset - 1])
+}

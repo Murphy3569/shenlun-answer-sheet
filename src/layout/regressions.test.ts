@@ -99,3 +99,65 @@ describe('从网页 / PDF 粘贴材料带进来的特殊空白', () => {
     expect(normalizeText('甲\u3000乙')).toBe('甲\u3000乙')
   })
 })
+
+
+describe('序号共格', () => {
+  /** 这一行里每个非空格显示什么（共格的格子显示成一个整体） */
+  const shown = (text: string) =>
+    run(text).rows.flatMap((r) => r.cells).filter((c) => !c.empty).map((c) => c.display)
+
+  it('行首的序号：收尾符号与序号体共占一格', () => {
+    expect(shown('1、加强学习').slice(0, 2)).toEqual(['1、', '加'])
+    expect(shown('一、加强学习').slice(0, 2)).toEqual(['一、', '加'])
+    expect(shown('1.加强学习').slice(0, 2)).toEqual(['1.', '加'])
+    expect(shown('1)加强学习').slice(0, 2)).toEqual(['1)', '加'])
+    // 序号后面习惯空一格，那一格是独立的空格
+    expect(shown('1. 加强学习').slice(0, 3)).toEqual(['1.', ' ', '加'])
+  })
+
+  it('句首的序号也共格 —— 申论里序号多是接着上一句写的', () => {
+    const text = '取得了明显成效。1、加强学习'
+    const cells = shown(text)
+    expect(cells).toContain('。')
+    expect(cells).toContain('1、')
+
+    // 关掉开关就该多占一格 —— 证明这一格确实是共格省下来的
+    const off = run(text, { profile: withProfile(createDefaultProfile(), { pairListMarker: false }) })
+      .rows.flatMap((r) => r.cells)
+      .filter((c) => !c.empty)
+    expect(off.length).toBe(cells.length + 1)
+  })
+
+  it('句首：句末点号与冒号之后都算', () => {
+    expect(shown('成效。1、加强学习')).toContain('1、')
+    expect(shown('主要有三点：1、加强学习')).toContain('1、')
+    expect(shown('真的吗？1、加强学习')).toContain('1、')
+  })
+
+  it('★行中的枚举不是序号，绝不共格', () => {
+    // 用户给的反例：这里的 1 是数据，不是序号
+    const cells = shown('我国石油产量和进口量分别为1、2和3')
+    const i = cells.indexOf('1')
+    expect(i).toBeGreaterThan(0)
+    expect(cells[i + 1]).toBe('、')
+    expect(cells[i + 2]).toBe('2')
+  })
+
+  it('分号后不算句首（「分别为1、2；3、4」里的 3 是数据）', () => {
+    expect(shown('分别为1、2；3、4')).not.toContain('3、')
+    expect(shown('分别为1、2；3、4')).not.toContain('1、')
+  })
+
+  it('括号序号整组占一格 —— GB/T 15834 B.3.4：括号序次语后不加任何点号', () => {
+    expect(shown('（1）想象力').slice(0, 2)).toEqual(['（1）', '想'])
+    expect(shown('（一）遵守法律法规').slice(0, 2)).toEqual(['（一）', '遵'])
+    expect(shown('(2)直觉的理解力').slice(0, 2)).toEqual(['(2)', '直'])
+  })
+
+  it('数字本身的分组不受影响', () => {
+    // 小数由数字 token 自己处理，与序号共格无关
+    expect(shown('1.5')).toEqual(['1.', '5'])
+    // 2026 占两格，不认作序号
+    expect(shown('2026.')).toEqual(['20', '26', '.'])
+  })
+})

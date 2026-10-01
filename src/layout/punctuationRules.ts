@@ -454,6 +454,55 @@ export function buildWideSqueezeRules(): Record<string, CompoundRule> {
   return rules
 }
 
+/**
+ * 括号序号：（1）（一）（12）…… 整组连括号共占一格。
+ *
+ * GB/T 15834—2011 B.3.4：**加括号的序次语后面不用任何点号** ——
+ * 括号本身就是标点，所以这一组自己就是完整的序号，后面不再跟收尾符号。
+ * 标准原文示例：「科学家很重视下面几种才能：（1）想象力；（2）直觉的理解力……」
+ *
+ * 和其他复合标点不同，这个组合没法穷举（数字有无数种），所以用模式匹配，
+ * 按 key 现算现缓存 —— 查表的地方统一走 resolveCompoundRule()。
+ */
+const BRACKET_MARKER_RE = /^[（(]([0-9０-９]{1,2}|[一二三四五六七八九十百千万亿零两壹贰叁肆伍陆柒捌玖拾])[）)]/
+
+function bracketMarkerRuleFrom(key: string): CompoundRule | null {
+  if (!BRACKET_MARKER_RE.test(key)) return null
+  const bodyEnd = key.length - 1
+  return labelGlyphs({
+    key,
+    cellCount: 1,
+    note: '括号序号：括号与序号共占一格（GB/T 15834 B.3.4 括号序次语后不加点号）',
+    glyphs: [
+      glyph(0, 1, 0, { x: 0.24, y: 0.5 }, 0.8),
+      glyph(1, bodyEnd, 0, { x: 0.5, y: 0.5 }, 0.92),
+      glyph(bodyEnd, key.length, 0, { x: 0.76, y: 0.5 }, 0.8),
+    ],
+  })
+}
+
+/** 模式生成的复合标点按 key 缓存（表里查不到时用） */
+const patternRuleCache = new Map<string, CompoundRule>()
+
+/**
+ * 按 key 取复合标点规则：先查静态表，查不到再试模式规则。
+ *
+ * 所有「按 compoundKey 反查规则」的地方都必须走这里 ——
+ * 直接用 profile.compoundRules[key] 会漏掉模式生成的那批（括号序号）。
+ */
+export function resolveCompoundRule(
+  table: Record<string, CompoundRule>,
+  key: string,
+): CompoundRule | undefined {
+  const hit = table[key]
+  if (hit) return hit
+  const cached = patternRuleCache.get(key)
+  if (cached) return cached
+  const made = bracketMarkerRuleFrom(key)
+  if (made) patternRuleCache.set(key, made)
+  return made ?? undefined
+}
+
 const maxLenCache = new WeakMap<object, number>()
 
 /** 组合表中最长 key 的长度，供 tokenizer 限定匹配窗口（结果按表缓存） */
@@ -474,6 +523,13 @@ export function matchCompound(text: string, index: number, profile: LayoutProfil
   for (let len = maxLen; len >= 2; len--) {
     const rule = rules[text.slice(index, index + len)]
     if (rule) return rule
+  }
+  // 模式规则：括号序号
+  const rest = text.slice(index, index + 4)
+  const bracket = BRACKET_MARKER_RE.exec(rest)
+  if (bracket) {
+    const made = resolveCompoundRule(rules, bracket[0])
+    if (made) return made
   }
   return null
 }

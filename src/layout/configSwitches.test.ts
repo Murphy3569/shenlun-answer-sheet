@@ -142,6 +142,15 @@ describe('预设', () => {
     const r = run('2026', { profile: createPlainProfile() })
     expect(rowContent(r, 0)).toEqual(['2', '0', '2', '6'])
   })
+
+  it('pairListMarker：关掉后序号收尾符号不再与前字共格', () => {
+    // 表示法见 testUtils.renderCell：同一格里多个占位者用 + 连接，被挤占的加 ~
+    const on = run('1、加强学习')
+    expect(rowContent(on, 0).slice(0, 2)).toEqual(['1+、~', '加'])
+
+    const off = run('1、加强学习', { profile: withProfile(base, { pairListMarker: false }) })
+    expect(rowContent(off, 0).slice(0, 3)).toEqual(['1', '、', '加'])
+  })
 })
 
 describe('默认 profile 的完整性', () => {

@@ -41,6 +41,7 @@ export {
   SEPARATOR_CHARS,
   NUMBER_TRAILING_UNITS,
   NUMBER_INNER_JOINERS,
+  resolveCompoundRule,
 } from './punctuationRules'
 export {
   measureDigits,
@@ -60,6 +61,9 @@ export {
   isCompressibleWideToken,
   canSplitFreely,
   isWiderThanLine,
+  isSentenceStart,
+  isListMarkerBody,
+  isListMarkerTail,
 } from './lineBreakRules'
 export type { TokenLineRules } from './lineBreakRules'
 export {

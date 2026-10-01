@@ -32,6 +32,7 @@ export function createDefaultProfile(): LayoutProfile {
     preventOpeningPunctuationAtLineEnd: true,
     lineEndStrategy: 'squeeze',
     compressWideTokenAtLineEnd: true,
+    pairListMarker: true,
 
     // 复合标点
     compoundPunctuation: true,
@@ -63,6 +64,8 @@ export function createStrictGbProfile(): LayoutProfile {
     compressWideTokenAtLineEnd: false,
     pairArabicDigits: false,
     englishCharsPerCell: 1,
+    // 「不做任何方格纸压缩」——序号共格也是压缩的一种，关掉
+    pairListMarker: true,
     autoIndentFirstLine: true,
   }
 }
@@ -78,6 +81,7 @@ export function createPlainProfile(): LayoutProfile {
     // 「原样排布」就该一个字符一格。漏了这句会让同一套预设里
     // 数字 1 字 1 格、字母却 2 字 1 格，也和预设说明自相矛盾。
     englishCharsPerCell: 1,
+    pairListMarker: true,
     autoIndentFirstLine: false,
   }
 }
